@@ -355,7 +355,7 @@ function wrapText(context, text, x, y, maxWidth, lineHeight, maxHeight) {
   let line = '';
   for (let n = 0; n < words.length; n++) {
     let word = words[n];
-
+    // break any single word that alone exceeds maxWidth
     while (context.measureText(word).width > maxWidth) {
       let cut = word.length;
       while (cut > 1 && context.measureText(word.slice(0, cut)).width > maxWidth) cut--;
@@ -363,7 +363,6 @@ function wrapText(context, text, x, y, maxWidth, lineHeight, maxHeight) {
       line = '';
       word = word.slice(cut);
     }
-
     const testLine = line + word + ' ';
     if (context.measureText(testLine).width > maxWidth && line !== '') {
       lines.push(line);
@@ -372,41 +371,35 @@ function wrapText(context, text, x, y, maxWidth, lineHeight, maxHeight) {
       line = testLine;
     }
   }
-
   if (line) lines.push(line);
 
   const maxLines = maxHeight ? Math.max(1, Math.floor(maxHeight / lineHeight)) : lines.length;
   let curY = y;
-
   for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
     context.fillText(lines[i], x, curY);
     curY += lineHeight;
   }
 }
 
+// Draws single-line text, shrinking font size to fit maxWidth instead of
+// letting canvas squish/distort it.
 function fitText(context, text, x, y, maxWidth, basePx, fontFamily, align) {
   if (!text) return;
-
   let size = basePx;
   const minSize = 6;
-
   context.textAlign = align || 'left';
   context.font = `${size}px ${fontFamily}`;
-
   let width = context.measureText(text).width;
-
   if (width > maxWidth) {
     size = Math.max(minSize, basePx * (maxWidth / width));
     context.font = `${size}px ${fontFamily}`;
-
+    // one more correction pass in case scaling wasn't perfectly linear
     width = context.measureText(text).width;
-
     if (width > maxWidth && size > minSize) {
       size = Math.max(minSize, size * (maxWidth / width));
       context.font = `${size}px ${fontFamily}`;
     }
   }
-
   context.fillText(text, x, y);
 }
 
@@ -416,64 +409,31 @@ function drawImageContain(context, img, x, y, w, h) {
   const dh = img.height * scale;
   const dx = x + (w - dw) / 2;
   const dy = y + (h - dh) / 2;
-
   context.drawImage(img, dx, dy, dw, dh);
 }
 
 function formatDate(iso) {
   if (!iso) return '';
-
   const [y, m, d] = iso.split('-');
-
   return `${d}/${m}/${y}`;
 }
 
 function render() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  ctx.drawImage(
-    templateImg,
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-
+  ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#1a1f16';
   ctx.textBaseline = 'alphabetic';
 
   // Theme
-  fitText(
-    ctx,
-    document.getElementById('theme').value,
-    COORDS.theme.x,
-    COORDS.theme.y,
-    COORDS.theme.maxWidth,
-    13,
-    FONT,
-    'left'
-  );
+  fitText(ctx, document.getElementById('theme').value, COORDS.theme.x, COORDS.theme.y, COORDS.theme.maxWidth, 13, FONT, 'left');
 
   // Date
-  fitText(
-    ctx,
-    formatDate(document.getElementById('prepDate').value),
-    COORDS.prepDate.x,
-    COORDS.prepDate.y,
-    COORDS.prepDate.maxWidth,
-    11,
-    FONT,
-    'left'
-  );
+  fitText(ctx, formatDate(document.getElementById('prepDate').value), COORDS.prepDate.x, COORDS.prepDate.y, COORDS.prepDate.maxWidth, 11, FONT, 'left');
 
   // Classification X mark
-  const selected = document.querySelector(
-    'input[name="classification"]:checked'
-  );
-
+  const selected = document.querySelector('input[name="classification"]:checked');
   if (selected) {
     const c = COORDS.classificationBoxes[selected.value];
-
     if (c) {
       ctx.font = 'bold 13px Arial';
       ctx.textAlign = 'center';
@@ -483,46 +443,16 @@ function render() {
   }
 
   // Prepared by
-  fitText(
-    ctx,
-    document.getElementById('preparedBy').value,
-    COORDS.preparedBy.x,
-    COORDS.preparedBy.y,
-    COORDS.preparedBy.maxWidth,
-    10,
-    FONT,
-    COORDS.preparedBy.align
-  );
-
+  fitText(ctx, document.getElementById('preparedBy').value, COORDS.preparedBy.x, COORDS.preparedBy.y, COORDS.preparedBy.maxWidth, 10, FONT, COORDS.preparedBy.align);
   ctx.textAlign = 'left';
 
   // Photos
-  if (noGoodImg) {
-    drawImageContain(
-      ctx,
-      noGoodImg,
-      COORDS.noGoodBox.x,
-      COORDS.noGoodBox.y,
-      COORDS.noGoodBox.w,
-      COORDS.noGoodBox.h
-    );
-  }
-
-  if (goodImg) {
-    drawImageContain(
-      ctx,
-      goodImg,
-      COORDS.goodBox.x,
-      COORDS.goodBox.y,
-      COORDS.goodBox.w,
-      COORDS.goodBox.h
-    );
-  }
+  if (noGoodImg) drawImageContain(ctx, noGoodImg, COORDS.noGoodBox.x, COORDS.noGoodBox.y, COORDS.noGoodBox.w, COORDS.noGoodBox.h);
+  if (goodImg) drawImageContain(ctx, goodImg, COORDS.goodBox.x, COORDS.goodBox.y, COORDS.goodBox.w, COORDS.goodBox.h);
 
   // P Q C D S M circles
   document.querySelectorAll('.pqcdsm:checked').forEach(box => {
     const c = COORDS.pqcdsm[box.value];
-
     if (c) {
       ctx.beginPath();
       ctx.arc(c.x, c.y - 3, 9, 0, Math.PI * 2);
@@ -532,148 +462,76 @@ function render() {
     }
   });
 
-  // Highlight text
+  // Highlight text (clipped to its box so overflow can't bleed onto other fields)
   ctx.save();
-
   ctx.beginPath();
   ctx.rect(65, 478, 495, 98);
   ctx.clip();
-
   ctx.font = COORDS.highlight.font;
-
-  wrapText(
-    ctx,
-    document.getElementById('highlight').value,
-    COORDS.highlight.x,
-    COORDS.highlight.y,
-    COORDS.highlight.maxWidth,
-    COORDS.highlight.lineHeight,
-    88
-  );
-
+  wrapText(ctx, document.getElementById('highlight').value, COORDS.highlight.x, COORDS.highlight.y, COORDS.highlight.maxWidth, COORDS.highlight.lineHeight, 88);
   ctx.restore();
 }
 
 templateImg.onload = render;
-
 document.fonts.ready.then(render);
 
-// Live updates
+// wire up live updates
 document.querySelectorAll('input, textarea').forEach(el => {
   el.addEventListener('input', render);
   el.addEventListener('change', render);
 });
 
-// Photo uploads
+// photo uploads
 function setupPhotoInput(dropId, fileId, setter) {
-
   const drop = document.getElementById(dropId);
   const file = document.getElementById(fileId);
-
   drop.addEventListener('click', () => file.click());
-
   file.addEventListener('change', () => {
-
     const f = file.files[0];
-
     if (!f) return;
-
     const reader = new FileReader();
-
     reader.onload = (e) => {
-
       const img = new Image();
-
       img.onload = () => {
-
         setter(img);
-
         render();
-
-        const thumb =
-          drop.querySelector('img') ||
-          document.createElement('img');
-
+        const thumb = drop.querySelector('img') || document.createElement('img');
         thumb.src = e.target.result;
-
-        if (!drop.contains(thumb)) {
-          drop.appendChild(thumb);
-        }
+        if (!drop.contains(thumb)) drop.appendChild(thumb);
       };
-
       img.src = e.target.result;
     };
-
     reader.readAsDataURL(f);
   });
 }
+setupPhotoInput('dropNoGood', 'fileNoGood', (img) => noGoodImg = img);
+setupPhotoInput('dropGood', 'fileGood', (img) => goodImg = img);
 
-setupPhotoInput(
-  'dropNoGood',
-  'fileNoGood',
-  (img) => noGoodImg = img
-);
-
-setupPhotoInput(
-  'dropGood',
-  'fileGood',
-  (img) => goodImg = img
-);
-
-// Download
+// download
 document.getElementById('downloadBtn').addEventListener('click', () => {
-
   const link = document.createElement('a');
-
   link.download = 'one-point-lesson.png';
-
   link.href = canvas.toDataURL('image/png');
-
   link.click();
 });
 
-// Share
+// share (Web Share API with files, falls back to download)
 document.getElementById('shareBtn').addEventListener('click', () => {
-
   canvas.toBlob(async (blob) => {
-
-    const file = new File(
-      [blob],
-      'one-point-lesson.png',
-      { type: 'image/png' }
-    );
-
-    if (
-      navigator.canShare &&
-      navigator.canShare({ files: [file] })
-    ) {
-
+    const file = new File([blob], 'one-point-lesson.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
-
-        await navigator.share({
-          files: [file],
-          title: 'TPM One Point Lesson'
-        });
-
+        await navigator.share({ files: [file], title: 'TPM One Point Lesson' });
       } catch (err) {
-        // User cancelled or share failed
+        // user cancelled or share failed — no action needed
       }
-
     } else {
-
-      alert(
-        'Direct share isn\'t supported on this browser. Downloading instead — attach the image in WhatsApp manually.'
-      );
-
+      alert('Direct share isn\'t supported on this browser. Downloading instead — attach the image in WhatsApp manually.');
       const link = document.createElement('a');
-
       link.download = 'one-point-lesson.png';
-
       link.href = canvas.toDataURL('image/png');
-
       link.click();
     }
-
   }, 'image/png');
 });
 </script>
