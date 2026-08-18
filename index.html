@@ -339,25 +339,24 @@ templateImg.src = 'template.jpg';
 let noGoodImg = null;
 let goodImg = null;
 
-// ---- Coordinate map (calibrated against template.jpg, 659x712) ----
 const FONT = "'Noto Sans Bengali', 'Noto Sans', Arial";
 
 const COORDS = {
-  theme:      { x: 108, y: 112, maxWidth: 285, font: `13px ${FONT}` },
-  prepDate:   { x: 515, y: 111, maxWidth: 135, font: `11px ${FONT}` },
+  theme:      { x: 100, y: 96, maxWidth: 280, font: `bold 14px ${FONT}` },
+  prepDate:   { x: 515, y: 111, maxWidth: 135, font: `bold 11px ${FONT}` },
   classificationBoxes: {
     'Basic Knowledge':        { x: 110, y: 138 },
     'Improvement Cases':      { x: 210, y: 138 },
     'Trouble shooting cases': { x: 303, y: 138 }
   },
-  preparedBy:    { x: 590, y: 172, maxWidth: 62,  font: `8.5px ${FONT}`, align: 'center' },
+  preparedBy:    { x: 590, y: 172, maxWidth: 62,  font: `bold 8.5px ${FONT}`, align: 'center' },
   noGoodBox: { x: 60, y: 205, w: 230, h: 208, r: 30 },
   goodBox:   { x: 338, y: 207, w: 275, h: 213, r: 30 },
   pqcdsm: {
     P: {x: 380, y: 469}, Q: {x: 392, y: 469}, C: {x: 405, y: 469},
     D: {x: 417, y: 469}, S: {x: 430, y: 469}, M: {x: 445, y: 469}
   },
-  highlight: { x: 68, y: 502, maxWidth: 485, lineHeight: 14, font: `11px ${FONT}` }
+  highlight: { x: 68, y: 502, maxWidth: 485, lineHeight: 15, font: `bold 12px ${FONT}` }
 };
 
 function wrapText(context, text, x, y, maxWidth, lineHeight, maxHeight) {
@@ -392,21 +391,20 @@ function wrapText(context, text, x, y, maxWidth, lineHeight, maxHeight) {
   }
 }
 
-function fitText(context, text, x, y, maxWidth, basePx, fontFamily, align) {
+function fitText(context, text, x, y, maxWidth, basePx, fontFamily, align, darker) {
   if (!text) return;
   let size = basePx;
   const minSize = 6;
   context.textAlign = align || 'left';
-  context.font = `${size}px ${fontFamily}`;
+  context.fillStyle = darker ? '#000000' : '#1a1f16';
+  context.font = `bold ${size}px ${fontFamily}`;
   let width = context.measureText(text).width;
-  if (width > maxWidth) {
-    size = Math.max(minSize, basePx * (maxWidth / width));
-    context.font = `${size}px ${fontFamily}`;
+  let attempts = 0;
+  while (width > maxWidth && size > minSize && attempts < 6) {
+    size = Math.max(minSize, size * (maxWidth / width) * 0.98);
+    context.font = `bold ${size}px ${fontFamily}`;
     width = context.measureText(text).width;
-    if (width > maxWidth && size > minSize) {
-      size = Math.max(minSize, size * (maxWidth / width));
-      context.font = `${size}px ${fontFamily}`;
-    }
+    attempts++;
   }
   context.fillText(text, x, y);
 }
@@ -444,17 +442,22 @@ function render() {
   ctx.fillStyle = '#1a1f16';
   ctx.textBaseline = 'alphabetic';
 
-  fitText(ctx, document.getElementById('theme').value, COORDS.theme.x, COORDS.theme.y, COORDS.theme.maxWidth, 13, FONT, 'left');
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(87, 74, 302, 43);
+  ctx.clip();
+  fitText(ctx, document.getElementById('theme').value, COORDS.theme.x, COORDS.theme.y, COORDS.theme.maxWidth, 14, FONT, 'left', true);
+  ctx.restore();
 
-  fitText(ctx, formatDate(document.getElementById('prepDate').value), COORDS.prepDate.x, COORDS.prepDate.y, COORDS.prepDate.maxWidth, 11, FONT, 'left');
+  fitText(ctx, formatDate(document.getElementById('prepDate').value), COORDS.prepDate.x, COORDS.prepDate.y, COORDS.prepDate.maxWidth, 11, FONT, 'left', true);
 
   const selected = document.querySelector('input[name="classification"]:checked');
   if (selected) {
     const c = COORDS.classificationBoxes[selected.value];
     if (c) {
       ctx.save();
-      ctx.strokeStyle = '#1a1f16';
-      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -470,7 +473,7 @@ function render() {
   ctx.beginPath();
   ctx.rect(556, 118, 70, 59);
   ctx.clip();
-  fitText(ctx, document.getElementById('preparedBy').value, COORDS.preparedBy.x, COORDS.preparedBy.y, COORDS.preparedBy.maxWidth, 8.5, FONT, COORDS.preparedBy.align);
+  fitText(ctx, document.getElementById('preparedBy').value, COORDS.preparedBy.x, COORDS.preparedBy.y, COORDS.preparedBy.maxWidth, 8.5, FONT, COORDS.preparedBy.align, true);
   ctx.restore();
   ctx.textAlign = 'left';
 
@@ -482,8 +485,8 @@ function render() {
     if (c) {
       ctx.beginPath();
       ctx.arc(c.x, c.y - 3, 9, 0, Math.PI * 2);
-      ctx.strokeStyle = '#b5651d';
-      ctx.lineWidth = 1.6;
+      ctx.strokeStyle = '#a8480f';
+      ctx.lineWidth = 2.4;
       ctx.stroke();
     }
   });
@@ -493,6 +496,7 @@ function render() {
   ctx.rect(58, 488, 502, 96);
   ctx.clip();
   ctx.font = COORDS.highlight.font;
+  ctx.fillStyle = '#000000';
   wrapText(ctx, document.getElementById('highlight').value, COORDS.highlight.x, COORDS.highlight.y, COORDS.highlight.maxWidth, COORDS.highlight.lineHeight, 86);
   ctx.restore();
 }
